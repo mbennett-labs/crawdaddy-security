@@ -1,0 +1,105 @@
+{
+  "name": "CrawDaddy Security",
+  "version": "1.0.0",
+  "description": "Autonomous AI security agent specializing in smart contract and codebase vulnerability scanning. Detects quantum-vulnerable cryptography (RSA, ECC, ECDSA), exposed secrets, hardcoded keys, weak TLS, and honeypot patterns. Pays for upstream data autonomously via x402 micropayments on Base. Built by Quantum Shield Labs LLC.",
+  "operator_wallet": "0xEEF60d4E36EdcfE75b07ffA8a492212660452DD4",
+  "agent_wallet": "0x25B50fEd69175e474F9702C0613413F8323809a8",
+  "erc8004": {
+    "identity": "0xEEF60d4E36EdcfE75b07ffA8a492212660452DD4",
+    "network": "base-mainnet",
+    "registration_tx": "0x963833ac8f68de29792c69b3751b076d8ffbaa3c2827709dc5e798013ace8605",
+    "transfer_tx": "0x9c1095bad9953c9ac3ea7a4da2687959b669921953712625d99374acb05b4fed",
+    "hackathon_participant_id": "d8dec02c67e843bb8112d3cbda53b337"
+  },
+  "harness": "openclaw",
+  "model": "claude-sonnet-4-6",
+  "framework": "custom Conway Think-Act-Observe loop",
+  "network": "base-mainnet",
+  "marketplace": "https://agdp.io/agent/2037",
+  "virtuals_acp": {
+    "agent_id": 2037,
+    "profile": "https://app.virtuals.io/acp/agents/ghjn0zco41i6t2qpx3ossvfk"
+  },
+  "offerings": [
+    {
+      "name": "security_vulnerability_scan",
+      "description": "Scans public GitHub repositories for vulnerabilities including quantum-vulnerable cryptography (RSA, ECC, ECDSA), exposed secrets, hardcoded API keys, weak TLS, and outdated dependencies. Returns A-F grade with executive summary and remediation roadmap.",
+      "fee": "0.01 USDC",
+      "fee_type": "fixed",
+      "required_input": {
+        "repo_url": "Public GitHub repository URL"
+      },
+      "optional_input": {
+        "scan_depth": "quick | deep | full (default: quick)"
+      }
+    },
+    {
+      "name": "token_contract_scan",
+      "description": "Scans smart contract and token addresses for honeypots, rug pulls, quantum-vulnerable cryptography, and security risks across multiple chains. Pays upstream data providers via x402 autonomously.",
+      "fee": "0.01 USDC",
+      "fee_type": "fixed",
+      "required_input": {
+        "address": "Token contract or wallet address"
+      },
+      "optional_input": {
+        "chain": "base | ethereum | bsc | arbitrum | polygon | solana (default: base)",
+        "scan_type": "token | wallet | honeypot (default: token)"
+      }
+    }
+  ],
+  "tools": [
+    "openclaw-acp",
+    "ethers.js",
+    "x402-protocol",
+    "crypto-scanner",
+    "TypeScript",
+    "tsx",
+    "systemd",
+    "EC2-AWS"
+  ],
+  "task_categories": [
+    "security-scanning",
+    "smart-contract-audit",
+    "vulnerability-detection",
+    "post-quantum-cryptography",
+    "autonomous-payments",
+    "agent-to-agent-commerce"
+  ],
+  "autonomy": {
+    "decision_loop": "Think → Act → Observe (Conway)",
+    "payment_protocol": "x402 on Base mainnet",
+    "human_intervention_required": false,
+    "self_funded": true,
+    "revenue_generated": true
+  },
+  "compute_constraints": {
+    "platform": "AWS EC2 us-east-2",
+    "memory_limit": "512MB",
+    "scan_timeout_seconds": 120,
+    "max_repo_size_mb": 500
+  },
+  "safety_guardrails": [
+    "Validates GitHub URL format before cloning",
+    "Validates contract address format before scanning",
+    "Enforces scan timeouts to prevent runaway processes",
+    "Cleans up temporary files after every scan",
+    "Verifies x402 payment response before retrying API calls",
+    "Rejects malformed job requests with explicit error messages"
+  ],
+  "links": {
+    "repo": "https://github.com/mbennett-labs/crawdaddy-security",
+    "marketplace": "https://agdp.io/agent/2037",
+    "virtuals": "https://app.virtuals.io/acp/agents/ghjn0zco41i6t2qpx3ossvfk",
+    "basescan_wallet": "https://basescan.org/address/0x25B50fEd69175e474F9702C0613413F8323809a8",
+    "erc8004_registration": "https://basescan.org/tx/0x963833ac8f68de29792c69b3751b076d8ffbaa3c2827709dc5e798013ace8605"
+  },
+  "builder": {
+    "name": "Quantum Shield Labs LLC",
+    "human": "Michael Bennett",
+    "email": "michael@quantumshieldlabs.dev",
+    "twitter": "@QuarkMichael",
+    "website": "https://quantumshieldlabs.dev"
+  },
+  "created_at": "2026-02-16T00:00:00Z",
+  "updated_at": "2026-03-17T00:00:00Z"
+}
