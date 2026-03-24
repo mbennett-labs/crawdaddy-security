@@ -20,21 +20,20 @@ log "=== Medic cycle start ==="
 # CHECK 0 — Credential health
 # ─────────────────────────────────────────
 
-# Test ACP API key
-ACP_KEY=$(cat ~/.openclaw/openclaw.json 2>/dev/null | \
-  python3 -c "import sys,json; d=json.load(sys.stdin); \
-  print(d.get('skills',{}).get('entries',{}).get('virtuals-protocol-acp',{}) \
-  .get('env',{}).get('ACP_API_KEY',''))" 2>/dev/null)
+# Test ACP API key (seller reads from config.json LITE_AGENT_API_KEY)
+ACP_KEY=$(python3 -c "import json; \
+  d=json.load(open('$HOME/.openclaw/virtuals-acp/config.json')); \
+  print(d.get('LITE_AGENT_API_KEY',''))" 2>/dev/null)
 
 if [ -n "$ACP_KEY" ]; then
   ACP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
     -H "x-api-key: $ACP_KEY" \
-    "https://api.virtuals.io/api/v2/sellers/me" 2>/dev/null)
+    "https://claw-api.virtuals.io/acp/me" 2>/dev/null)
   if [ "$ACP_STATUS" = "401" ] || [ "$ACP_STATUS" = "403" ]; then
     alarm "CRITICAL" \
 "ACP API key EXPIRED (HTTP $ACP_STATUS) — CrawDaddy cannot receive jobs.
 Renew at: https://app.virtuals.io/settings/api-keys
-Paste new key in: ~/.openclaw/openclaw.json"
+Update BOTH: ~/.openclaw/virtuals-acp/config.json (LITE_AGENT_API_KEY) + ~/.openclaw/openclaw.json"
   else
     log "OK: ACP API key valid (HTTP $ACP_STATUS)"
   fi
@@ -94,29 +93,51 @@ else
 fi
 
 # ─────────────────────────────────────────
-# CHECK 2 — Seller rejecting jobs
+# CHECK 2 — Seller errors + job rejections (30-min dedup)
 # ─────────────────────────────────────────
 SELLER_LOG=$(ls -t ~/.openclaw/virtuals-acp/logs/*.log 2>/dev/null | head -1)
+DEDUP_FILE="/tmp/medic-check2-last-alarm"
 if [ -f "$SELLER_LOG" ]; then
-  # Check for syntax/transform errors in last 30 min
-  ERRORS=$(grep -E "SyntaxError|TransformError|Cannot find|TypeError" \
-    "$SELLER_LOG" | \
-    awk -v cutoff="$(date -u -d '30 minutes ago' '+%Y-%m-%dT%H:%M')" \
-    '$0 > cutoff' | wc -l)
-  if [ "$ERRORS" -gt 0 ]; then
-    log "FAILURE: $ERRORS errors in seller log (last 30min)"
-    alarm "CRITICAL" \
-      "CrawDaddy seller has $ERRORS errors in last 30min — possible handlers.ts issue. Check seller.log"
-  else
-    log "OK: no seller errors in last 30min"
-  fi
+  # Check for seller errors (403, syntax, type errors)
+  ERRORS=$(grep -cE "SyntaxError|TransformError|Cannot find|TypeError|Forbidden|statusCode.*403|Failed to resolve" \
+    "$SELLER_LOG" 2>/dev/null)
 
   # Check for job rejections
-  REJECTIONS=$(grep "accept=false" "$SELLER_LOG" | \
-    grep "$(date '+%Y-%m-%d')" | wc -l)
+  REJECTIONS=$(grep -c "accept=false" "$SELLER_LOG" 2>/dev/null)
+
+  # Only alarm if 30 min since last alarm (dedup)
+  SHOULD_ALARM=false
+  if [ -f "$DEDUP_FILE" ]; then
+    LAST_ALARM=$(cat "$DEDUP_FILE")
+    NOW=$(date +%s)
+    if [ $(( NOW - LAST_ALARM )) -gt 1800 ]; then
+      SHOULD_ALARM=true
+    fi
+  else
+    SHOULD_ALARM=true
+  fi
+
+  if [ "$ERRORS" -gt 0 ]; then
+    log "FAILURE: $ERRORS seller errors in log"
+    if [ "$SHOULD_ALARM" = true ]; then
+      alarm "CRITICAL" \
+        "CrawDaddy seller has $ERRORS errors — latest: $(tail -100 "$SELLER_LOG" | grep -E 'Error|Forbidden' | tail -1 | head -c 200)"
+      date +%s > "$DEDUP_FILE"
+    else
+      log "  (alarm suppressed — dedup 30min)"
+    fi
+  else
+    log "OK: no seller errors"
+    rm -f "$DEDUP_FILE"
+  fi
+
   if [ "$REJECTIONS" -gt 2 ]; then
-    alarm "CRITICAL" \
-      "CrawDaddy rejecting jobs — $REJECTIONS today. Revenue lost. Check handlers.ts"
+    log "WARNING: $REJECTIONS job rejections in log"
+    if [ "$SHOULD_ALARM" = true ]; then
+      alarm "CRITICAL" \
+        "CrawDaddy rejecting jobs — $REJECTIONS total. Revenue lost. Check handlers.ts"
+      date +%s > "$DEDUP_FILE"
+    fi
   fi
 fi
 
