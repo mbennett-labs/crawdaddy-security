@@ -23,7 +23,7 @@ log "=== Medic cycle start ==="
 # Test ACP API key
 ACP_KEY=$(cat ~/.openclaw/openclaw.json 2>/dev/null | \
   python3 -c "import sys,json; d=json.load(sys.stdin); \
-  print(d.get('entries',{}).get('virtuals-protocol-acp',{}) \
+  print(d.get('skills',{}).get('entries',{}).get('virtuals-protocol-acp',{}) \
   .get('env',{}).get('ACP_API_KEY',''))" 2>/dev/null)
 
 if [ -n "$ACP_KEY" ]; then
@@ -40,9 +40,8 @@ Paste new key in: ~/.openclaw/openclaw.json"
   fi
 fi
 
-# Test Telegram bot token
-source ~/.contentbot.env 2>/dev/null
-source ~/.env 2>/dev/null
+# Test Telegram bot token (hardcoded in alarm.sh)
+BOT_TOKEN=$(grep "^BOT_TOKEN=" /home/ubuntu/crawdaddy-security/scripts/alarm.sh 2>/dev/null | head -1 | cut -d'"' -f2)
 if [ -n "$BOT_TOKEN" ]; then
   TG_STATUS=$(curl -s \
     "https://api.telegram.org/bot$BOT_TOKEN/getMe" | \
