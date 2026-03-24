@@ -40,8 +40,8 @@ Paste new key in: ~/.openclaw/openclaw.json"
   fi
 fi
 
-# Test Telegram bot token (hardcoded in alarm.sh)
-BOT_TOKEN=$(grep "^BOT_TOKEN=" /home/ubuntu/crawdaddy-security/scripts/alarm.sh 2>/dev/null | head -1 | cut -d'"' -f2)
+# Test Telegram bot token (from selarix.env)
+source ~/.selarix.env 2>/dev/null
 if [ -n "$BOT_TOKEN" ]; then
   TG_STATUS=$(curl -s \
     "https://api.telegram.org/bot$BOT_TOKEN/getMe" | \

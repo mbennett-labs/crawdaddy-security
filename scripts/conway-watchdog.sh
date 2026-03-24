@@ -6,8 +6,7 @@ LOG="/home/ubuntu/crawdaddy-security/logs/conway-watchdog.log"
 STATE_DB="/home/ubuntu/.automaton/state.db"
 RATE_FILE="/home/ubuntu/crawdaddy-security/logs/.conway-watchdog-last-balance"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-BOT_TOKEN="REDACTED_TOKEN_1"
-CHAT_ID="REDACTED_CHAT_ID"
+source ~/.selarix.env 2>/dev/null
 MAX_SPEND_PER_30MIN_CENTS=25  # $0.25 per 30 min = $0.50/hr
 ALARM="/home/ubuntu/crawdaddy-security/scripts/alarm.sh"
 

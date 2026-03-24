@@ -7,9 +7,8 @@ SEVERITY="${1:-WARNING}"
 MESSAGE="${2:-No message provided}"
 TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-# Credentials (same as watchdog scripts)
-BOT_TOKEN="REDACTED_TOKEN_1"
-CHAT_ID="REDACTED_CHAT_ID"
+# Credentials sourced from env file (never hardcode)
+source ~/.selarix.env 2>/dev/null
 EMAIL_TO="michael@quantumshieldlabs.dev"
 
 EMOJI="⚠️"

@@ -3,8 +3,7 @@
 
 LOG="/home/ubuntu/crawdaddy-security/logs/bastion-watchdog.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-BOT_TOKEN="REDACTED_TOKEN_2"
-CHAT_ID="REDACTED_CHAT_ID"
+source ~/.selarix.env 2>/dev/null
 
 notify() {
   curl -s "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
