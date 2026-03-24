@@ -9,6 +9,20 @@ TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
 log() { echo "[$TIMESTAMP] $1" >> "$LOG"; }
 alarm() { bash "$ALARM" "$1" "$2"; }
+dedup_alarm() {
+  local check_id="$1" severity="$2" message="$3"
+  local dedup_file="/tmp/medic-${check_id}-last-alarm"
+  local now=$(date +%s)
+  if [ -f "$dedup_file" ]; then
+    local last=$(cat "$dedup_file")
+    if [ $(( now - last )) -lt 1800 ]; then
+      log "SKIP: $check_id alarm suppressed ($(( now - last ))s ago, min 1800s)"
+      return 0
+    fi
+  fi
+  echo "$now" > "$dedup_file"
+  alarm "$severity" "$message"
+}
 fixed() {
   log "FIXED: $1"
   bash "$ALARM" "WARNING" "Swarm Medic fixed: $1"
@@ -30,7 +44,7 @@ if [ -n "$ACP_KEY" ]; then
     -H "x-api-key: $ACP_KEY" \
     "https://claw-api.virtuals.io/acp/me" 2>/dev/null)
   if [ "$ACP_STATUS" = "401" ] || [ "$ACP_STATUS" = "403" ]; then
-    alarm "CRITICAL" \
+    dedup_alarm "acp-key" "CRITICAL" \
 "ACP API key EXPIRED (HTTP $ACP_STATUS) — CrawDaddy cannot receive jobs.
 Renew at: https://app.virtuals.io/settings/api-keys
 Update BOTH: ~/.openclaw/virtuals-acp/config.json (LITE_AGENT_API_KEY) + ~/.openclaw/openclaw.json"
@@ -66,7 +80,7 @@ if [ -n "$ANTHROPIC_KEY" ]; then
     -H "anthropic-version: 2023-06-01" \
     "https://api.anthropic.com/v1/models" 2>/dev/null)
   if [ "$ANTH_STATUS" = "401" ]; then
-    alarm "WARNING" \
+    dedup_alarm "anthropic-key" "WARNING" \
       "Anthropic API key invalid — ContentBot will fail. Renew at console.anthropic.com"
   else
     log "OK: Anthropic API key valid (HTTP $ANTH_STATUS)"
@@ -85,7 +99,7 @@ if ! pgrep -f "seller.ts" > /dev/null; then
   if pgrep -f "seller.ts" > /dev/null; then
     fixed "CrawDaddy seller restarted successfully"
   else
-    alarm "CRITICAL" \
+    dedup_alarm "seller-dead" "CRITICAL" \
       "CrawDaddy seller DEAD — auto-restart FAILED. Manual intervention required."
   fi
 else
@@ -96,7 +110,6 @@ fi
 # CHECK 2 — Seller errors + job rejections (30-min dedup)
 # ─────────────────────────────────────────
 SELLER_LOG=$(ls -t ~/.openclaw/virtuals-acp/logs/*.log 2>/dev/null | head -1)
-DEDUP_FILE="/tmp/medic-check2-last-alarm"
 if [ -f "$SELLER_LOG" ]; then
   # Check for seller errors (403, syntax, type errors)
   ERRORS=$(grep -cE "SyntaxError|TransformError|Cannot find|TypeError|Forbidden|statusCode.*403|Failed to resolve" \
@@ -105,39 +118,18 @@ if [ -f "$SELLER_LOG" ]; then
   # Check for job rejections
   REJECTIONS=$(grep -c "accept=false" "$SELLER_LOG" 2>/dev/null)
 
-  # Only alarm if 30 min since last alarm (dedup)
-  SHOULD_ALARM=false
-  if [ -f "$DEDUP_FILE" ]; then
-    LAST_ALARM=$(cat "$DEDUP_FILE")
-    NOW=$(date +%s)
-    if [ $(( NOW - LAST_ALARM )) -gt 1800 ]; then
-      SHOULD_ALARM=true
-    fi
-  else
-    SHOULD_ALARM=true
-  fi
-
   if [ "$ERRORS" -gt 0 ]; then
     log "FAILURE: $ERRORS seller errors in log"
-    if [ "$SHOULD_ALARM" = true ]; then
-      alarm "CRITICAL" \
-        "CrawDaddy seller has $ERRORS errors — latest: $(tail -100 "$SELLER_LOG" | grep -E 'Error|Forbidden' | tail -1 | head -c 200)"
-      date +%s > "$DEDUP_FILE"
-    else
-      log "  (alarm suppressed — dedup 30min)"
-    fi
+    dedup_alarm "seller-errors" "CRITICAL" \
+      "CrawDaddy seller has $ERRORS errors — latest: $(tail -100 "$SELLER_LOG" | grep -E 'Error|Forbidden' | tail -1 | head -c 200)"
   else
     log "OK: no seller errors"
-    rm -f "$DEDUP_FILE"
   fi
 
   if [ "$REJECTIONS" -gt 2 ]; then
     log "WARNING: $REJECTIONS job rejections in log"
-    if [ "$SHOULD_ALARM" = true ]; then
-      alarm "CRITICAL" \
-        "CrawDaddy rejecting jobs — $REJECTIONS total. Revenue lost. Check handlers.ts"
-      date +%s > "$DEDUP_FILE"
-    fi
+    dedup_alarm "seller-rejections" "CRITICAL" \
+      "CrawDaddy rejecting jobs — $REJECTIONS total. Revenue lost. Check handlers.ts"
   fi
 fi
 
@@ -151,7 +143,7 @@ if ! systemctl is-active researchbot.service > /dev/null 2>&1; then
   if systemctl is-active researchbot.service > /dev/null 2>&1; then
     fixed "ResearchBot restarted"
   else
-    alarm "WARNING" "ResearchBot down and failed to restart"
+    dedup_alarm "researchbot" "WARNING" "ResearchBot down and failed to restart"
   fi
 else
   log "OK: researchbot running"
@@ -165,10 +157,10 @@ CREDITS=$(sqlite3 ~/.automaton/state.db \
    FROM kv WHERE key='last_known_balance';" 2>/dev/null)
 if [ -n "$CREDITS" ]; then
   if [ "$CREDITS" -lt 50 ]; then
-    alarm "CRITICAL" \
+    dedup_alarm "conway-credits" "CRITICAL" \
       "Conway credits CRITICAL: $(echo "$CREDITS" | awk '{printf "%.2f", $1/100}') — Bastion will die soon. Add credits NOW."
   elif [ "$CREDITS" -lt 150 ]; then
-    alarm "WARNING" \
+    dedup_alarm "conway-credits" "WARNING" \
       "Conway credits low: $(echo "$CREDITS" | awk '{printf "%.2f", $1/100}') — add credits soon"
   fi
   log "OK: Conway credits $CREDITS cents"
@@ -182,7 +174,7 @@ if systemctl is-active bastion.service > /dev/null 2>&1; then
   if [ -z "$LOCK" ]; then
     log "FAILURE: Bastion running without unlock token — stopping"
     sudo systemctl stop bastion.service
-    alarm "CRITICAL" \
+    dedup_alarm "bastion-lock" "CRITICAL" \
       "Bastion was running WITHOUT unlock token — auto-stopped. Something re-enabled it. Investigate."
   fi
 fi
@@ -209,9 +201,9 @@ fi
 # ─────────────────────────────────────────
 DISK=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
 if [ "$DISK" -gt 85 ]; then
-  alarm "CRITICAL" "EC2 disk at ${DISK}% — approaching full. Clean up logs."
+  dedup_alarm "disk-space" "CRITICAL" "EC2 disk at ${DISK}% — approaching full. Clean up logs."
 elif [ "$DISK" -gt 75 ]; then
-  alarm "WARNING" "EC2 disk at ${DISK}% — monitor closely"
+  dedup_alarm "disk-space" "WARNING" "EC2 disk at ${DISK}% — monitor closely"
 fi
 log "OK: disk at ${DISK}%"
 
@@ -220,7 +212,7 @@ log "OK: disk at ${DISK}%"
 # ─────────────────────────────────────────
 if ! pgrep -f "openclaw" > /dev/null; then
   log "FAILURE: openclaw gateway not running"
-  alarm "CRITICAL" \
+  dedup_alarm "openclaw-gw" "CRITICAL" \
     "OpenClaw gateway is DOWN — CrawDaddy cannot receive jobs. Manual restart required."
 else
   log "OK: openclaw gateway running"
@@ -235,7 +227,7 @@ if [ -f ~/.ssh/id_ed25519 ]; then
     'docker inspect --format="{{.State.Status}}" \
      miner-agent-miner-1 2>/dev/null' 2>/dev/null)
   if [ -n "$MINER_STATUS" ] && [ "$MINER_STATUS" != "running" ]; then
-    alarm "WARNING" \
+    dedup_alarm "sn61-miner" "WARNING" \
       "SN61 miner container on Hostinger is $MINER_STATUS — check docker"
   elif [ -z "$MINER_STATUS" ]; then
     log "WARNING: could not reach Hostinger or miner container missing"
