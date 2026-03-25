@@ -4,7 +4,11 @@
 
 set -euo pipefail
 
+# Source credentials (.env is legacy fallback, selarix.env is authoritative)
 [ -f /home/ubuntu/.env ] && source /home/ubuntu/.env
+[ -f /home/ubuntu/.selarix.env ] && source /home/ubuntu/.selarix.env
+# Map BOT_TOKEN → TELEGRAM_BOT_TOKEN (selarix.env uses BOT_TOKEN)
+export TELEGRAM_BOT_TOKEN="${BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
 
 # Parse --self-destruct flag
 SELF_DESTRUCT=false

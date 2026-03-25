@@ -12,8 +12,11 @@
 
 set -euo pipefail
 
-# Source environment for GITHUB_TOKEN
+# Source credentials (.env is legacy fallback, selarix.env is authoritative)
 [ -f /home/ubuntu/.env ] && source /home/ubuntu/.env
+[ -f /home/ubuntu/.selarix.env ] && source /home/ubuntu/.selarix.env
+# Map BOT_TOKEN → TELEGRAM_BOT_TOKEN (selarix.env uses BOT_TOKEN)
+export TELEGRAM_BOT_TOKEN="${BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
 
 SCANNER="/home/ubuntu/.local/bin/crypto-scanner"
 REPORTS_DIR="/home/ubuntu/crawdaddy-tasks/reports"
@@ -480,15 +483,16 @@ REPORT
                     local warning_msg_id
                     warning_msg_id=$(echo "$warning_response" | jq -r '.result.message_id // empty' 2>/dev/null) || true
 
-                    # Background process: delete both messages after 1 hour
-                    (
+                    # Background process: delete both messages after 1 hour (fully detached)
+                    nohup bash -c "
                         sleep 3600
-                        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage"                             -d "chat_id=${chat_id}" -d "message_id=${doc_msg_id}" > /dev/null 2>&1
-                        if [ -n "${warning_msg_id}" ]; then
-                            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage"                                 -d "chat_id=${chat_id}" -d "message_id=${warning_msg_id}" > /dev/null 2>&1
+                        curl -s -X POST 'https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage' \
+                            -d 'chat_id=${chat_id}' -d 'message_id=${doc_msg_id}' > /dev/null 2>&1
+                        if [ -n '${warning_msg_id}' ]; then
+                            curl -s -X POST 'https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage' \
+                                -d 'chat_id=${chat_id}' -d 'message_id=${warning_msg_id}' > /dev/null 2>&1
                         fi
-                    ) &
-                    disown
+                    " </dev/null >/dev/null 2>&1 &
                 fi
             else
                 local doc_err
