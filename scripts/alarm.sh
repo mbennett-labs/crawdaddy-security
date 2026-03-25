@@ -59,3 +59,10 @@ fi
 # Log every alarm
 mkdir -p /home/ubuntu/crawdaddy-security/logs
 echo "[$TIMESTAMP] $SEVERITY: $MESSAGE [delivered: ${DELIVERED:-NONE}]" >> /home/ubuntu/crawdaddy-security/logs/alarms.log
+
+# Channel 4: IncidentResponder — auto-repair on CRITICAL alarms
+IR_SCRIPT="$HOME/qsl-swarm/SELARIX-AGENTS/incident-responder/incident-responder.sh"
+if [ "$SEVERITY" = "CRITICAL" ] && [ -x "$IR_SCRIPT" ]; then
+  nohup "$IR_SCRIPT" "$SEVERITY" "$MESSAGE" >> /home/ubuntu/crawdaddy-security/logs/incidents.log 2>&1 &
+  echo "[$TIMESTAMP] IncidentResponder dispatched for: $MESSAGE" >> /home/ubuntu/crawdaddy-security/logs/alarms.log
+fi
