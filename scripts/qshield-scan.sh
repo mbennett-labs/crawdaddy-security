@@ -504,6 +504,21 @@ REPORT
         fi
     fi
 
+    # --- Generate PDF report ---
+    local pdf_path=""
+    if command -v python3 &>/dev/null; then
+        local gen_output
+        gen_output=$(python3 /home/ubuntu/crawdaddy-security/scripts/generate-report.py "$report_path" 2>/dev/null) || true
+        pdf_path=$(echo "$gen_output" | grep "^PDF_PATH=" | cut -d= -f2-)
+        if [ -n "$pdf_path" ] && [ -f "$pdf_path" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "$chat_id" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+                -F "chat_id=${chat_id}" \
+                -F "document=@${pdf_path}" \
+                -F "caption=📊 Full PDF Report — ${repo_name} — Score: ${score}/100 ${risk_emoji}" \
+                > /dev/null 2>&1 || true
+        fi
+    fi
+
     # --- Cleanup ---
     rm -rf "$scan_dir"
 
@@ -520,6 +535,7 @@ REPORT
     echo "SCAN_TOTAL_FILES=${total_files}"
     echo "SCAN_PASSING=${passing}"
     echo "REPORT_PATH=${report_path}"
+    echo "PDF_PATH=${pdf_path}"
     echo "GIST_URL=${gist_url}"
     echo "TELEGRAM_DOC=${telegram_doc_status}"
     echo "SCAN_COMPLETE"
