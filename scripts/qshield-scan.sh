@@ -49,6 +49,7 @@ search_source() {
               "$pattern" "$dir" 2>/dev/null \
         | grep -v node_modules | grep -v '.lock' | grep -v vendor \
         | grep -v __pycache__ | grep -v '.min.js' | grep -v dist/ \
+        | grep -v '.webpack/' | grep -v build/ | grep -v '.next/' | grep -v 'out/' \
         | head -10 || true
 }
 
@@ -61,6 +62,7 @@ search_config() {
               --include="*.ini" --include="*.properties" \
               "$pattern" "$dir" 2>/dev/null \
         | grep -v node_modules | grep -v '.lock' | grep -v vendor \
+        | grep -v '.webpack/' | grep -v build/ | grep -v '.next/' | grep -v 'out/' \
         | head -10 || true
 }
 
@@ -304,7 +306,9 @@ $(format_file_list "$scan_dir" "$weakkey_pattern" "${weakkey_arr[@]}")
         -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" \
         -o -name "*.c" -o -name "*.cpp" -o -name "*.cs" -o -name "*.php" \
         -o -name "*.swift" -o -name "*.kt" -o -name "*.scala" \
-    \) ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/vendor/*" | wc -l)
+    \) ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/vendor/*" \
+       ! -path "*/.webpack/*" ! -path "*/dist/*" ! -path "*/build/*" \
+       ! -path "*/.next/*" ! -path "*/out/*" | wc -l)
     total_files=$(echo "$total_files" | tr -d ' ')
 
     # --- Also run crypto-scanner if available ---

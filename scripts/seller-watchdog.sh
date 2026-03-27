@@ -1,6 +1,12 @@
 #!/bin/bash
 # CrawDaddy Seller Watchdog - restarts seller if dead + alarm on failures
 
+# QSL-7 Guard: exit immediately if seller.ts is already running (prevent duplicate spawn)
+if pgrep -f "seller.ts" > /dev/null 2>&1; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Seller already running (PID $(pgrep -f 'seller.ts' | head -1)) — skipping" >> /home/ubuntu/crawdaddy-security/logs/watchdog.log
+    exit 0
+fi
+
 LOG="/home/ubuntu/crawdaddy-security/logs/watchdog.log"
 ALARM="/home/ubuntu/crawdaddy-security/scripts/alarm.sh"
 SELLER_LOG="/home/ubuntu/.openclaw/virtuals-acp/logs/seller.log"
